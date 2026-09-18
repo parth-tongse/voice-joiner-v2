@@ -1,0 +1,168 @@
+# =============================================================================
+# Lavalink Server Configuration
+# Based on: https://github.com/itsfizys/Lavalink-Setup
+# Integrated into: Discord Voice Joiner v2 by PARTH TONGSE
+#
+# QUICK SETUP (to run your own local Lavalink server):
+#   1. Download Lavalink.jar from https://github.com/lavalink-devs/Lavalink/releases
+#   2. Keep Lavalink.jar and this application.yml in the same folder
+#   3. Install Java 17+: https://adoptium.net/
+#   4. Run: java -jar Lavalink.jar
+#   5. In your .env set: LAVALINK_HOST=localhost:2333 and LAVALINK_PASSWORD=aeroxdevs
+#
+# YOUTUBE OAUTH SETUP (first-time only, strongly recommended):
+#   1. Leave refreshToken empty below
+#   2. Set skipInitialization: false
+#   3. Start Lavalink, follow console instructions to authorize with a Google account
+#   4. Copy the refresh token from console and paste below
+#   5. Set skipInitialization: true and restart
+# =============================================================================
+
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    # YouTube Plugin — replaces built-in yt-dlp, supports OAuth to bypass bot checks
+    - dependency: dev.lavalink.youtube:youtube-plugin:f45bbb7aebfcbc1c553769e04af6cd43afa8b7c3
+      repository: https://maven.lavalink.dev/snapshots
+      snapshot: true
+    # SlugYZeon Plugin — additional sources and enhancements
+    - dependency: com.github.xylen-py.SlugYZeon:slugyzeon-plugin:4.4.7
+      repository: https://jitpack.io
+    # LavaSrc Plugin — Spotify, Apple Music, Deezer, Yandex Music support
+    - dependency: com.github.topi314.lavasrc:lavasrc-plugin:4.8.3
+      repository: https://maven.lavalink.dev/releases
+      snapshot: false
+    # LavaSearch Plugin — enhanced multi-source search
+    - dependency: com.github.topi314.lavasearch:lavasearch-plugin:1.0.0
+      repository: https://maven.lavalink.dev/releases
+      snapshot: false
+
+  server:
+    # CHANGE THIS before exposing publicly!
+    password: "aeroxdevs"
+
+    # Audio quality settings
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    gc-warnings: true
+    opusEncodingQuality: 5          # 0-10 (higher = better quality, more CPU)
+    playerUpdateInterval: 5
+    resamplingQuality: HIGH          # LOW, MEDIUM, HIGH
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+
+    # Audio Filters (all enabled — used by lavalink.ts PRESET_AUDIO_FILTERS)
+    filters:
+      channelMix: true    # 8D audio effect
+      distortion: true    # earrape/distortion preset
+      equalizer: true     # hd/boost/bassboost/pop/treble EQ presets
+      karaoke: true       # karaoke mode
+      lowPass: true       # soft mode
+      rotation: true      # 8D rotation effect
+      timescale: true     # nightcore/vaporwave speed+pitch
+
+plugins:
+  # ─── YouTube Plugin Configuration ───────────────────────────────────────────
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    clients:
+      - MUSIC
+      - ANDROID_TESTSUITE
+      - WEB
+      - TVHTML5EMBEDDED
+      - WEBEMBEDDED
+    # YouTube OAuth — prevents "Sign in to confirm you're not a bot" errors
+    # Strongly recommended for cloud/VPS deployments
+    oauth:
+      enabled: true
+      # Leave empty for first-time setup (Lavalink will print auth URL in console)
+      refreshToken: ""
+      skipInitialization: false
+
+  # ─── LavaSrc Plugin Configuration ──────────────────────────────────────────
+  # Enables: spsearch: (Spotify), amsearch: (Apple Music),
+  #          dzsearch: (Deezer), ymsearch: (Yandex Music)
+  lavasrc:
+    providers:
+      - "ytsearch:\"%ISRC%\""
+      - "ytsearch:%QUERY%"
+      - "scsearch:%QUERY%"
+    sources:
+      spotify: true
+      applemusic: true
+      deezer: true
+      yandexmusic: true
+      flowerytts: false
+      youtube: true
+    spotify:
+      clientId: "YOUR_SPOTIFY_CLIENT_ID"
+      clientSecret: "YOUR_SPOTIFY_CLIENT_SECRET"
+      # Country code for Spotify recommendations
+      countryCode: "IN"
+      playlistLoadLimit: 6
+      albumLoadLimit: 6
+    applemusic:
+      countryCode: "IN"
+      playlistLoadLimit: 6
+      albumLoadLimit: 6
+      # Optional: Add Apple Music Media API token for better results
+      # mediaAPIToken: "YOUR_APPLE_MEDIA_API_TOKEN"
+    deezer:
+      masterDecryptionKey: "2a4568b77aec1be7f8b46fb929e15f2a"
+    yandexmusic:
+      accessToken: ""  # Optional: Yandex Music OAuth token
+
+  # ─── LavaSearch Plugin ──────────────────────────────────────────────────────
+  # Enables enhanced multi-source search results
+  lavasearch:
+    sources:
+      - youtube
+      - youtubemusic
+      - soundcloud
+      - spotify
+      - applemusic
+      - deezer
+
+  # ─── SlugYZeon Plugin ───────────────────────────────────────────────────────
+  # Provides additional sources and audio enhancements
+  slugyzeon:
+    enabled: true
+
+metrics:
+  prometheus:
+    enabled: false
+    endpoint: /metrics
+
+sentry:
+  dsn: ""
+  environment: ""
+
+logging:
+  file:
+    path: ./logs/
+
+  level:
+    root: INFO
+    lavalink: INFO
+
+  request:
+    enabled: true
+    includeClientInfo: true
+    includeHeaders: false
+    includeQueryString: true
+    includePayload: true
+    maxPayloadLength: 10000
+
+  logback:
+    rollingpolicy:
+      max-file-size: 1GB
+      max-history: 30

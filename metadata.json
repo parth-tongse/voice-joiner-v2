@@ -1,0 +1,6 @@
+{
+  "name": "Discord Voice Joiner",
+  "description": "High-performance dashboard and controller for managing multiple Discord accounts in voice channels 24/7 with bulk controls, Lavalink LUMINA-V1 music streaming engine, auto-reconnect, and September 2026 DAVE v1.1 E2EE integrity protocol support. Developed by Parth Tongse.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
