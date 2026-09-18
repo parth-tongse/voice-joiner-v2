@@ -142,7 +142,16 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ theme, accounts, onR
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tokens: tokenInput }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Not valid JSON (e.g. server error page)
+      }
+      if (!res.ok) {
+        throw new Error(data.error || data.message || text || `Server error (${res.status})`);
+      }
       setTokenInput("");
       setShowAddModal(false);
       showFeedback("success", `Successfully added ${data.count || "new"} token(s) to manager.`);
@@ -208,26 +217,30 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ theme, accounts, onR
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tokens: tokensArray }),
         });
-        const data = await res.json();
-        if (data.success) {
+        const text = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(text); } catch {}
+        if (res.ok && data.success) {
           showFeedback("success", `Successfully removed ${data.count || tokensArray.length} selected account(s).`);
           setSelectedTokens(new Set());
           onRefresh();
         } else {
-          showFeedback("error", data.error || "Failed to remove selected accounts.");
+          showFeedback("error", data.error || text || "Failed to remove selected accounts.");
         }
       } else if (confirmModal.type === "all") {
         const res = await fetch("/api/tokens/delete-all", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
-        const data = await res.json();
-        if (data.success) {
+        const text = await res.text();
+        let data: any = {};
+        try { data = JSON.parse(text); } catch {}
+        if (res.ok && data.success) {
           showFeedback("success", `All ${data.count || accounts.length} accounts have been removed from tokens.txt.`);
           setSelectedTokens(new Set());
           onRefresh();
         } else {
-          showFeedback("error", data.error || "Failed to delete all accounts.");
+          showFeedback("error", data.error || text || "Failed to delete all accounts.");
         }
       }
     } catch (e: any) {

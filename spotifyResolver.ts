@@ -4,10 +4,21 @@ import * as spotifyUrlInfoPkg from "spotify-url-info";
 // @ts-ignore
 const spotifyUrlInfo: any =
   (spotifyUrlInfoPkg as any)?.default || spotifyUrlInfoPkg;
-const { getData, getTracks, getPreview } =
-  typeof spotifyUrlInfo === "function"
-    ? spotifyUrlInfo(fetch)
-    : { getData: undefined, getTracks: undefined, getPreview: undefined };
+
+let getData: any;
+let getTracks: any;
+let getPreview: any;
+
+try {
+  const initialized = typeof spotifyUrlInfo === "function" ? spotifyUrlInfo(fetch) : spotifyUrlInfo;
+  if (initialized) {
+    getData = initialized.getData;
+    getTracks = initialized.getTracks;
+    getPreview = initialized.getPreview;
+  }
+} catch (e) {
+  console.warn("spotify-url-info initialization notice:", e);
+}
 
 export interface SpotifyTrackInfo {
   id: string;

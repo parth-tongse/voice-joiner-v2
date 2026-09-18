@@ -36,9 +36,33 @@ let ACTIVE_AUDIO_ENGINE: "direct" | "lavalink" =
   (process.env.AUDIO_ENGINE as "direct" | "lavalink") || "direct";
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Path to tokens.txt
-const TOKENS_FILE = path.join(process.cwd(), "tokens.txt");
+// Normalize req.url for Vercel rewrites & serverless deployment
+app.use((req, _res, next) => {
+  if (req.url && !req.url.startsWith("/api/") && req.url !== "/api") {
+    if (
+      req.url.startsWith("/tokens") ||
+      req.url.startsWith("/health") ||
+      req.url.startsWith("/ping") ||
+      req.url.startsWith("/system") ||
+      req.url.startsWith("/e2ee") ||
+      req.url.startsWith("/actions") ||
+      req.url.startsWith("/lavalink") ||
+      req.url.startsWith("/voice") ||
+      req.url.startsWith("/audio") ||
+      req.url.startsWith("/server-invite")
+    ) {
+      req.url = "/api" + req.url;
+    }
+  }
+  next();
+});
+
+// Path to tokens.txt (writable /tmp on Vercel)
+const TOKENS_FILE = process.env.VERCEL
+  ? path.join("/tmp", "tokens.txt")
+  : path.join(process.cwd(), "tokens.txt");
 
 export interface LogEntry {
   id: string;
@@ -594,8 +618,15 @@ class BotManager {
 
   public loadFromTokensFile() {
     try {
-      if (fs.existsSync(TOKENS_FILE)) {
-        const content = fs.readFileSync(TOKENS_FILE, "utf-8");
+      let targetFile = TOKENS_FILE;
+      if (process.env.VERCEL && !fs.existsSync(targetFile)) {
+        const rootTokens = path.join(process.cwd(), "tokens.txt");
+        if (fs.existsSync(rootTokens)) {
+          targetFile = rootTokens;
+        }
+      }
+      if (fs.existsSync(targetFile)) {
+        const content = fs.readFileSync(targetFile, "utf-8");
         const lines = content.split(/\r?\n/);
         for (let line of lines) {
           line = line.trim();
@@ -604,12 +635,12 @@ class BotManager {
           if (line && !this.bots.has(line)) {
             const bot = new DiscordBotClient(line);
             this.bots.set(line, bot);
-            bot.fetchUserProfile();
+            bot.fetchUserProfile().catch(() => {});
           }
         }
       }
     } catch (e) {
-      console.error("Failed reading tokens.txt:", e);
+      console.error("Failed reading tokens file:", e);
     }
   }
 
@@ -620,7 +651,7 @@ class BotManager {
       const tokenLines = Array.from(this.bots.keys()).join("\n");
       fs.writeFileSync(TOKENS_FILE, header + tokenLines + "\n", "utf-8");
     } catch (e) {
-      console.error("Failed writing tokens.txt:", e);
+      console.error("Failed writing tokens file:", e);
     }
   }
 
@@ -872,30 +903,35 @@ app.get("/api/tokens", (_req, res) => {
 
 // Add tokens (single or bulk text)
 app.post("/api/tokens", (req, res) => {
-  const { tokens, token } = req.body;
-  const added: string[] = [];
-  if (token && typeof token === "string") {
-    manager.addToken(token);
-    added.push(token);
-  } else if (Array.isArray(tokens)) {
-    for (const t of tokens) {
-      if (typeof t === "string" && t.trim()) {
-        manager.addToken(t);
-        added.push(t);
+  try {
+    const { tokens, token } = req.body || {};
+    const added: string[] = [];
+    if (token && typeof token === "string") {
+      manager.addToken(token);
+      added.push(token);
+    } else if (Array.isArray(tokens)) {
+      for (const t of tokens) {
+        if (typeof t === "string" && t.trim()) {
+          manager.addToken(t);
+          added.push(t);
+        }
+      }
+    } else if (typeof tokens === "string") {
+      // Bulk text parsing
+      const lines = tokens.split(/\r?\n/);
+      for (const l of lines) {
+        const clean = l.trim().replace(/^["']|["']$/g, "");
+        if (clean && !clean.startsWith("//") && !clean.startsWith("#")) {
+          manager.addToken(clean);
+          added.push(clean);
+        }
       }
     }
-  } else if (typeof tokens === "string") {
-    // Bulk text parsing
-    const lines = tokens.split(/\r?\n/);
-    for (const l of lines) {
-      const clean = l.trim().replace(/^["']|["']$/g, "");
-      if (clean && !clean.startsWith("//") && !clean.startsWith("#")) {
-        manager.addToken(clean);
-        added.push(clean);
-      }
-    }
+    return res.json({ success: true, count: added.length });
+  } catch (err: any) {
+    console.error("Error adding tokens:", err);
+    return res.status(500).json({ success: false, error: err?.message || "Failed adding tokens" });
   }
-  res.json({ success: true, count: added.length });
 });
 
 // Delete token (single)
@@ -1737,6 +1773,17 @@ app.get("/api/lavalink/filters/presets", (_req, res) => {
     presets: Object.keys(PRESET_AUDIO_FILTERS),
     definitions: PRESET_AUDIO_FILTERS,
   });
+});
+
+// API 404 Handler (prevents returning index.html for unknown /api/* routes)
+app.use("/api/*", (_req, res) => {
+  res.status(404).json({ success: false, error: "API endpoint not found." });
+});
+
+// Global API Error Handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[API Server Error]", err);
+  res.status(500).json({ success: false, error: err?.message || "Internal server error." });
 });
 
 async function startServer() {
